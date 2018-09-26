@@ -101,7 +101,7 @@ func (m *Manager) CheckRoomInfo(info msg.LoginInfo) (bool, *ChatRoom) {
 	return false, nil
 }
 
-//todo:玩家注册信息
+//todo:玩家注册信息，加载到数据库
 func (m *Manager) CheckRegisterInfo(info msg.LoginInfo) (bool, *User) {
 	return true, &User{Uid: info.Uid}
 }
