@@ -19,7 +19,7 @@ type ChatRoom struct {
 	OnlineNum    int
 	OfflineNum   int
 	OnlineUsers  []*User
-	OfflineUsers []*User
+	//OfflineUsers []*User
 	msg          chan []byte
 	mu           sync.Mutex
 
@@ -53,13 +53,15 @@ func CreateAndStartChatRoom(m *Manager, id int, name string) {
 }
 
 func (this *ChatRoom) TraceLevel() {
-	for range time.Tick(time.Second * 60) {
+	for range time.Tick(time.Second * 5) {
 		for _, user := range this.OnlineUsers {
 			pre := user.Title
-			_, _, title := UserLevelConversion(user.TotalTime + time.Now().Second() - user.LoginTime.Second())
-			if pre != title {
+			_, _, title := UserLevelConversion(user.TotalTime + int(time.Now().Sub(user.LoginTime).Seconds()))
+			//fmt.Printf("等级:pre=%s,title=%s,uid=%d,totaltime=%d,dtime=%d",pre,title,user.Uid,user.TotalTime,int(time.Now().Sub(user.LoginTime).Seconds()))
+			if pre != title && pre != "" {
 				this.BroadcastLevelChanged(&LevelChange{Uid: user.Uid, OldTitle: pre, NewTitle: title})
 			}
+			user.Title = title
 		}
 	}
 }
@@ -75,17 +77,6 @@ func (this *ChatRoom) Run() {
 }
 
 func (this *ChatRoom) SetUserIn(user *User) {
-	if user.GetRoomId() == this.Rid { //之前就在房间中，发送离线消息
-		this.OfflineNum--
-		t := user.LogoutTime.Format("2006-01-02 15:04:05") //用户上次离线时间
-		if messages := this.GetMsgByTime(t); len(messages) > 0 {
-			for _, m := range messages {
-				if m.SendMsg != "" {
-					user.SendMsg([]byte(m.SendMsg))
-				}
-			}
-		}
-	}
 	user.Room = this
 	this.addUser(user)
 	this.BroadcastLogin(user)
@@ -112,8 +103,9 @@ func (this *ChatRoom) addUser(user *User) {
 
 func (this *ChatRoom) removeUser(user *User) {
 	this.mu.Lock()
-	for i := 0; i < this.OnlineNum; i++ {
+	for i := 0; i < len(this.OnlineUsers); i++ {
 		if this.OnlineUsers[i].Uid == user.Uid {
+			fmt.Println("remove user ", user.Uid)
 			this.OnlineUsers = append(this.OnlineUsers[:i], this.OnlineUsers[i+1:]...)
 			this.OnlineNum--
 			break
@@ -124,7 +116,8 @@ func (this *ChatRoom) removeUser(user *User) {
 
 func (this *ChatRoom) offlineUser(user *User) {
 	this.removeUser(user)
-	this.OfflineUsers = append(this.OfflineUsers, user)
+	//this.OfflineUsers = append(this.OfflineUsers, user)
+	this.OnlineNum--
 	this.OfflineNum++
 }
 
@@ -195,6 +188,7 @@ func (this *ChatRoom) ReceiveMsg(b []byte) {
 		this.msgNum = 0
 		this.msgBuf = make([]mysql.RoomInfo, 0, MAX_MSG_BUF)
 	}
+
 }
 
 func (this *ChatRoom) AddMsgToSql(infos []mysql.RoomInfo) {
@@ -240,4 +234,15 @@ func (this *ChatRoom) GetMsgByTime(t string) []mysql.RoomInfo {
 		messages = append(messages, info)
 	}
 	return messages
+}
+
+func (this *ChatRoom) SendOfflineMsg(user *User) {
+	t := user.LogoutTime.Format("2006-01-02 15:04:05") //用户上次离线时间
+	if messages := this.GetMsgByTime(t); len(messages) > 0 {
+		for _, m := range messages {
+			if m.SendMsg != "" {
+				user.SendMsg([]byte(m.SendMsg))
+			}
+		}
+	}
 }

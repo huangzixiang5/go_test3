@@ -81,8 +81,15 @@ func ExecuteStr(sqlStr string, args []interface{}) {
 //-------------------------------------------------------用户信息表 userInfoTab 的增删改查---------------
 //新增用户
 func AddUserInfo(userInfo *UserInfo) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", userInfo.OfflineTime)
-	checkErr(err)
+	var ttime time.Time
+	if userInfo.OfflineTime != "" {
+		ttime, _ = time.Parse("2006-01-02 15:04:05", userInfo.OfflineTime)
+		//checkErr(err)
+	} else {
+		ttime, _ = time.Parse("2006-01-02 15:04:05", "0000-00-00 00:00:00")
+		//checkErr(err)
+	}
+
 	str := "INSERT " + userInfoTab + " set uid = ?, user_name = ?,password = ?, head_photo = ?, status = ?, online_time = ?, offline_time = ?,default_roomid = ?"
 	args := []interface{}{userInfo.Uid, userInfo.UserName, userInfo.PassWord, userInfo.HeadPhoto, userInfo.Status, userInfo.OnlineTime, ttime, userInfo.DefaultRoomId}
 	ExecuteStr(str, args)
@@ -214,6 +221,26 @@ func CheckUserInfoByUidAndPassword(uid int, password string) (bool bool, result 
 	//checkErr(err)
 }
 
+func CheckUserInfoExistByName(name string) (b bool) {
+	str := "SELECT * FROM " + userInfoTab + " WHERE `user_name`=? "
+	db := GetDBConnect()
+	defer db.Close()
+	row := db.QueryRow(str, name)
+	var Uid int
+	var UserName string
+	var PassWord string
+	var HeadPhoto string
+	var Status string
+	var OnlineTime int
+	var OfflineTime string
+	var DefaultRoomId int
+	err := row.Scan(&Uid, &UserName, &PassWord, &HeadPhoto, &Status, &OnlineTime, &OfflineTime, &DefaultRoomId)
+	if err == nil {
+		return false
+	}
+	return true
+}
+
 func CheckUserInfoByNameAndPassword(name, password string) (b bool, result []UserInfo) {
 	result = []UserInfo{}
 	str := "SELECT * FROM " + userInfoTab + " WHERE `user_name`=? and `password`=? "
@@ -319,14 +346,14 @@ func AddRoomInfoByRoomId(roomId int, roomInfo *RoomInfo) {
 }
 
 func UpdataRoomInfoBySendTime(roomId int, sendTime string, roomInfo *RoomInfo) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "UPDATE " + roomInfoTab + strconv.Itoa(roomId) + " SET `uid`= ?, `room_name`=?, `send_msg`=? WHERE `send_time`=? "
 	args := []interface{}{roomInfo.Uid, roomInfo.RoomName, roomInfo.SendMsg, ttime}
 	ExecuteStr(str, args)
 }
 func DeleteSingleRoomInfoBySendTime(roomId int, sendTime string) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "DELETE FROM " + roomInfoTab + strconv.Itoa(roomId) + " WHERE `send_time` =?"
 	args := []interface{}{}
@@ -335,7 +362,7 @@ func DeleteSingleRoomInfoBySendTime(roomId int, sendTime string) {
 }
 func GetSingleRoomInfoBySendTime(roomId int, sendTime string) (result []RoomInfo) {
 	result = []RoomInfo{}
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "SELECT * FROM " + roomInfoTab + strconv.Itoa(roomId) + " WHERE `send_time`=? LIMIT 1"
 	db := GetDBConnect()
@@ -370,9 +397,9 @@ func GetAllRoomInfo(roomId int) (result []RoomInfo) {
 }
 func GetRoomInfoByTimes(time1 string, time2 string, roomId int) (result []RoomInfo) {
 	result = []RoomInfo{}
-	t1, err := time.Parse("2006-01-02 15:04:05", time1)
+	t1, err := time.Parse("2006-01-02 15:04:05", time1)
 	checkErr(err)
-	t2, err := time.Parse("2006-01-02 15:04:05", time2)
+	t2, err := time.Parse("2006-01-02 15:04:05", time2)
 	checkErr(err)
 
 	id := strconv.Itoa(roomId)

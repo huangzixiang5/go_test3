@@ -1,12 +1,15 @@
 package config
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	IP         = "localhost:50000"
-	HEART_TIME = time.Second * 100
+	HEART_TIME = time.Second * 300
 )
 
+//hgjg
 const (
 	C2S_LOGIN      uint8 = 0x001 //请求登录
 	C2S_LOGOUT     uint8 = 0x003 //请求登出
@@ -47,15 +50,16 @@ const (
 )
 
 func UserLevelConversion(mins int) (level int, exp int, title string) {
+	mins = int(mins / 60)
 	exp = mins
 	switch {
-	case mins >= 0 && mins <= 5:
+	case mins >= 0 && mins <= 1:
 		title = "童生"
 		level = 1
-	case mins >= 6 && mins <= 10:
+	case mins >= 2 && mins <= 3:
 		title = "秀才"
 		level = 2
-	case mins >= 11 && mins <= 20:
+	case mins >= 4 && mins <= 20:
 		title = "举人"
 		level = 3
 	case mins >= 21 && mins <= 50:
@@ -67,6 +71,9 @@ func UserLevelConversion(mins int) (level int, exp int, title string) {
 	case mins >= 101:
 		title = "知县"
 		level = 6
+	default:
+		title = "童生"
+		level = 1
 	}
 	return
 }

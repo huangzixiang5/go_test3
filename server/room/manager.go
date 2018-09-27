@@ -93,6 +93,7 @@ func (m *Manager) GetHallInfo() []msg.SimpleRoomInfo {
 
 //检查登录信息，，封装user对象
 func (m *Manager) CheckLoginInfo(info msg.LoginInfo) (bool, *User) {
+	fmt.Println("checkLoginInfo",info)
 	a, b := mysql.CheckUserInfoByNameAndPassword(info.Name, info.Password)
 	if a {
 		fmt.Println("CheckLoginInfo offlineTime", b[0].OfflineTime)
@@ -120,13 +121,15 @@ func (m *Manager) CheckRoomInfo(info msg.LoginInfo) (bool, *ChatRoom) {
 	return false, nil
 }
 
-//todo:玩家注册信息，加载到数据库
-func (m *Manager) CheckRegisterInfo(info msg.LoginInfo) (bool, *User) {
-	info.Uid = m.GetUniqueId()
-	u := mysql.UserInfo{Uid: info.Uid, PassWord: info.Password, UserName: info.Name}
-	mysql.AddUserInfo(&u)
-	fmt.Println("add user to sql", info)
-	//return true, &User{Uid: info.Uid, Name: info.Name}
+//玩家注册信息，加载到数据库
+func (m *Manager) CheckRegisterInfo(info msg.LoginInfo,notExist bool) (bool, *User) {
+	if notExist{
+		info.Uid = m.GetUniqueId()
+		u := mysql.UserInfo{Uid: info.Uid, PassWord: info.Password, UserName: info.Name}
+		mysql.AddUserInfo(&u)
+		fmt.Println("add user to sql", info)
+		return true, &User{Uid: info.Uid, Name: info.Name}
+	}
 	return false, &User{Uid: info.Uid, Name: info.Name}
 }
 

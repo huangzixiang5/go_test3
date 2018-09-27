@@ -3,6 +3,7 @@ package room
 import (
 	. "../config"
 	"../msg"
+	"../mysql"
 	"fmt"
 	"log"
 	"net"
@@ -45,7 +46,8 @@ import (
 
 func Register(manager *Manager, conn net.Conn, body msg.LoginInfo) bool {
 	fmt.Println("Register : ", body)
-	isLegal, user := manager.CheckRegisterInfo(body)
+	notExist := mysql.CheckUserInfoExistByName(body.Name)
+	isLegal, user := manager.CheckRegisterInfo(body, notExist)
 	if isLegal {
 		user.SetConn(conn)
 		user.SetLogin()
@@ -77,8 +79,9 @@ func OnLogin(manager *Manager, conn net.Conn) {
 				user.SetConn(conn)
 				user.SetLogin()
 				if user.Room != nil {
+					isReEnter := true
 					user.Room.SetUserIn(user)
-					go OnEnterRoom(manager, user)
+					go OnEnterRoom(manager, user, isReEnter)
 				} else {
 					go OnEnterHall(manager, user)
 				}
@@ -127,7 +130,8 @@ func OnEnterHall(manager *Manager, user *User) {
 			isLegal, room := manager.CheckRoomInfo(body.(msg.LoginInfo))
 			if isLegal {
 				room.SetUserIn(user)
-				go OnEnterRoom(manager, user)
+				isReEnter := false
+				go OnEnterRoom(manager, user, isReEnter)
 				return
 			}
 		case C2S_HEART:
@@ -142,11 +146,15 @@ func OnEnterHall(manager *Manager, user *User) {
 }
 
 //处理进入房间逻辑
-func OnEnterRoom(manager *Manager, user *User) {
+func OnEnterRoom(manager *Manager, user *User, isReEnter bool) {
 	log.Println("OnEnterRoom uid : ", user.Uid)
 	t := user.Room.ConvertToRoomInfo()
 	t.UserInfo = user.ConvertToUserInfo()
 	manager.SendMsgByConn(user.Conn, S2C_ENTER_ROOM_SUCCESS, t)
+	if isReEnter {
+		user.Room.OfflineNum--
+		user.Room.SendOfflineMsg(user)
+	}
 	for {
 		b := make([]byte, 1024)
 		n, err := user.Conn.Read(b)

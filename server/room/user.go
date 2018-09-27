@@ -31,7 +31,7 @@ func (this *User) SetLogin() {
 
 func (this *User) SetLogout() {
 	this.LogoutTime = time.Now()
-	this.TotalTime = this.TotalTime + this.LogoutTime.Second() - this.LoginTime.Second()
+	this.TotalTime = this.TotalTime + int(this.LogoutTime.Sub(this.LoginTime).Seconds())
 }
 
 func (this *User) SetOffline() {
@@ -55,11 +55,15 @@ func (this *User) GetRoomId() int {
 }
 
 func (this *User) ConvertToUserInfo() msg.UserInfo {
-	level, exp, title := UserLevelConversion(this.TotalTime + time.Now().Second() - this.LoginTime.Second())
+	t1 := time.Now()
+	t2:=this.LoginTime
+	dt:=t1.Sub(t2)
+	level, exp, title := UserLevelConversion(this.TotalTime + int(dt.Seconds()))
 	return msg.UserInfo{Uid: this.Uid, Name: this.Name, Level: level, Exp: exp, Title: title, Status: STATUS_IN_HALL}
 }
 
 func (this *User) SendMsg(b []byte) {
+
 	cmd, data, _ := msg.Deserialize(b)
 	_, err := this.Conn.Write(b)
 	if err != nil {
