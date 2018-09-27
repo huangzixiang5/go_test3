@@ -16,6 +16,13 @@ type Manager struct {
 	Rooms []*ChatRoom
 }
 
+var id int
+
+func (m *Manager) GetUniqueId() int {
+	id++
+	return id
+}
+
 func (m *Manager) CreateChatRooms(r map[int]string) {
 	for id, name := range r {
 		CreateAndStartChatRoom(m, id, name)
@@ -31,7 +38,6 @@ func (m *Manager) StopHeartBeat(conn net.Conn) {
 }
 
 func (m *Manager) SendMsgByConn(conn net.Conn, cmd uint8, v interface{}) {
-	fmt.Println("SendMsgByConn : ", cmd, v)
 	t, err := msg.Serialize(cmd, v)
 	if err != nil {
 		log.Print(err)
@@ -39,6 +45,8 @@ func (m *Manager) SendMsgByConn(conn net.Conn, cmd uint8, v interface{}) {
 	_, err = conn.Write(t)
 	if err != nil {
 		log.Print(err)
+	} else {
+		fmt.Println("SendMsgByConn : ", cmd, v)
 	}
 }
 
@@ -60,6 +68,7 @@ func (m *Manager) Start() {
 //添加一个聊天室
 func (m *Manager) AddRoom(r *ChatRoom) {
 	m.Rooms = append(m.Rooms, r)
+	mysql.AddRoomInfoByRoomId(r.Rid, &mysql.RoomInfo{})
 }
 
 // 根据ID获取聊天室
@@ -84,9 +93,19 @@ func (m *Manager) GetHallInfo() []msg.SimpleRoomInfo {
 
 //检查登录信息，，封装user对象
 func (m *Manager) CheckLoginInfo(info msg.LoginInfo) (bool, *User) {
-	a, b := mysql.CheckUserInfoByUidAndPassword(info.Uid, info.Password)
+	a, b := mysql.CheckUserInfoByNameAndPassword(info.Name, info.Password)
 	if a {
-		return true, &User{Uid: info.Uid, Name: b[0].UserName, Url: b[0].HeadPhoto, TotalTime: b[0].OnlineTime, Room: m.GetRoomById(b[0].DefaultRoomId)}
+		fmt.Println("CheckLoginInfo offlineTime", b[0].OfflineTime)
+		offlineTime, err := time.Parse("2006-01-02 15:04:05", b[0].OfflineTime)
+		fmt.Println(err)
+		fmt.Println("CheckLoginInfo offlineTime", offlineTime)
+		return true, &User{Uid: b[0].Uid,
+			Name:       b[0].UserName,
+			Url:        b[0].HeadPhoto,
+			TotalTime:  b[0].OnlineTime,
+			Room:       m.GetRoomById(b[0].DefaultRoomId),
+			LogoutTime: offlineTime,
+		}
 	}
 	return false, &User{}
 }
@@ -103,7 +122,12 @@ func (m *Manager) CheckRoomInfo(info msg.LoginInfo) (bool, *ChatRoom) {
 
 //todo:玩家注册信息，加载到数据库
 func (m *Manager) CheckRegisterInfo(info msg.LoginInfo) (bool, *User) {
-	return true, &User{Uid: info.Uid}
+	info.Uid = m.GetUniqueId()
+	u := mysql.UserInfo{Uid: info.Uid, PassWord: info.Password, UserName: info.Name}
+	mysql.AddUserInfo(&u)
+	fmt.Println("add user to sql", info)
+	//return true, &User{Uid: info.Uid, Name: info.Name}
+	return false, &User{Uid: info.Uid, Name: info.Name}
 }
 
 func (m *Manager) GetUserByIdFromSql(uid int) (result *User) {

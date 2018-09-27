@@ -82,6 +82,11 @@ func Deserialize(data []byte) (cmd uint8, v interface{}, err error) {
 	var msg []byte
 	cmd, msg = SplitMsg(data)
 	switch cmd {
+	case C2S_HEART, S2C_LOGOUT_SUCCESS, S2C_ENTER_ROOM_FAIL, S2C_LOGIN_FAIL, S2C_OUT_ROOM_SUCCESS, S2C_REGISTER_SUCCESS, S2C_REGISTER_FAIL:
+	case S2C_BROADCAST_ENTER_ROOM, S2C_BROADCAST_OUT_ROOM, S2C_BROADCAST_OFFLINE:
+		t := LoginInfo{}
+		json.Unmarshal(msg, &t)
+		v = t
 	case S2C_BROADCAST_LEVELCHANGED:
 		t := LevelChange{}
 		err = json.Unmarshal(msg, &t)
@@ -98,17 +103,10 @@ func Deserialize(data []byte) (cmd uint8, v interface{}, err error) {
 		t := Chat{}
 		err = json.Unmarshal(msg, &t)
 		v = t
-		//case S2C_LOGIN_FAIL:
-		//case S2C_LOGOUT_SUCCESS:
-		//case S2C_ENTER_ROOM_FAIL:
-		//case S2C_OUT_ROOM_SUCCESS:
-		//case S2C_REGISTER_SUCCESS:
-
 	case C2S_LOGIN:
 		t := LoginInfo{}
 		json.Unmarshal(msg, &t)
 		v = t
-	case C2S_LOGOUT:
 	case C2S_ENTER_ROOM:
 		t := LoginInfo{}
 		err = json.Unmarshal(msg, &t)

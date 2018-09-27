@@ -4,7 +4,7 @@ import "time"
 
 const (
 	IP         = "localhost:50000"
-	HEART_TIME = time.Second * 300
+	HEART_TIME = time.Second * 5
 )
 
 const (
@@ -30,6 +30,7 @@ const (
 	S2C_BROADCAST_OUT_ROOM     uint8 = 0x014 // 广播玩家出房间
 	S2C_BROADCAST_OFFLINE      uint8 = 0x016 //广播玩家离线
 	S2C_BROADCAST_LEVELCHANGED uint8 = 0x018 //广播玩家等级变化
+	S2C_REGISTER_FAIL          uint8 = 0X01A //注册成功
 
 )
 
@@ -44,3 +45,41 @@ const (
 	CHAT_FACE uint8 = 0x02 //表情
 	CHAT_PIC  uint8 = 0x03 //图片
 )
+
+func UserStatusConversion(status uint8) string {
+	switch status {
+	case STATUS_OFFLINE:
+		return "offline"
+	case STATUS_IN_ROOM:
+		return "in_room"
+	case STATUS_IN_HALL:
+		return "in_hall"
+	default:
+		return "unknown"
+	}
+}
+
+func UserLevelConversion(mins int) (level int, exp int, title string) {
+	exp = mins
+	switch {
+	case mins >= 0 && mins <= 5:
+		title = "童生"
+		level = 1
+	case mins >= 6 && mins <= 10:
+		title = "秀才"
+		level = 2
+	case mins >= 11 && mins <= 20:
+		title = "举人"
+		level = 3
+	case mins >= 21 && mins <= 50:
+		title = "进士"
+		level = 4
+	case mins >= 51 && mins <= 100:
+		title = "县丞"
+		level = 5
+	case mins >= 101:
+		title = "知县"
+		level = 6
+	}
+	return
+}

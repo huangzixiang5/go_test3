@@ -9,36 +9,53 @@ import (
 )
 
 //注册
-func OnRegister(manager *Manager, conn net.Conn) {
-	for {
-		b := make([]byte, 1024)
-		n, err := conn.Read(b)
-		if err != nil {
-			log.Print(" OnLogin conn error ")
-			return
-		}
-		cmd, body, err := msg.Deserialize(b[:n])
-		if err != nil {
-			fmt.Println(err)
-		}
-		if cmd == C2S_REGISTER { // 只监注册
-			isLegal, user := manager.CheckRegisterInfo(body.(msg.LoginInfo))
-			if isLegal {
-				user.SetConn(conn)
-				user.SetLogin()
-				manager.SendMsgByConn(conn, S2C_REGISTER_SUCCESS, nil)
-				go OnEnterHall(manager, user)
-				return
-			} else {
-				manager.SendMsgByConn(conn, S2C_REGISTER_FAIL, nil)
-			}
-		} else if cmd == C2S_HEART {
-			manager.StartHeartBeat(conn)
-		} else if cmd == C2S_LOGIN {
-			go OnLogin(manager, conn)
-			return
-		}
+//func OnRegister(manager *Manager, conn net.Conn) {
+//	for {
+//		b := make([]byte, 1024)
+//		n, err := conn.Read(b)
+//		if err != nil {
+//			log.Print(" OnLogin conn error ")
+//			return
+//		}
+//		fmt.Println("receive ", b)
+//		cmd, body, err := msg.Deserialize(b[:n])
+//		fmt.Println("aaaaaaaaaaaaa", body)
+//		if err != nil {
+//			fmt.Println(err)
+//		}
+//		if cmd == C2S_REGISTER { // 只监注册
+//			isLegal, user := manager.CheckRegisterInfo(body.(msg.LoginInfo))
+//			if isLegal {
+//				user.SetConn(conn)
+//				user.SetLogin()
+//				manager.SendMsgByConn(conn, S2C_REGISTER_SUCCESS, nil)
+//				go OnEnterHall(manager, user)
+//				return
+//			} else {
+//				manager.SendMsgByConn(conn, S2C_REGISTER_FAIL, nil)
+//			}
+//		} else if cmd == C2S_HEART {
+//			manager.StartHeartBeat(conn)
+//		} else if cmd == C2S_LOGIN {
+//			go OnLogin(manager, conn)
+//			return
+//		}
+//	}
+//}
+
+func Register(manager *Manager, conn net.Conn, body msg.LoginInfo) bool {
+	fmt.Println("Register : ", body)
+	isLegal, user := manager.CheckRegisterInfo(body)
+	if isLegal {
+		user.SetConn(conn)
+		user.SetLogin()
+		manager.SendMsgByConn(conn, S2C_REGISTER_SUCCESS, nil)
+		go OnEnterHall(manager, user)
+		return true
+	} else {
+		manager.SendMsgByConn(conn, S2C_REGISTER_FAIL, nil)
 	}
+	return false
 }
 
 //处理登录逻辑
@@ -47,7 +64,7 @@ func OnLogin(manager *Manager, conn net.Conn) {
 		b := make([]byte, 1024)
 		n, err := conn.Read(b)
 		if err != nil {
-			log.Print(" OnLogin conn error ")
+			log.Print(" OnLogin conn error ", err)
 			return
 		}
 		cmd, body, err := msg.Deserialize(b[:n])
@@ -60,10 +77,12 @@ func OnLogin(manager *Manager, conn net.Conn) {
 				user.SetConn(conn)
 				user.SetLogin()
 				if user.Room != nil {
+					user.Room.SetUserIn(user)
 					go OnEnterRoom(manager, user)
 				} else {
 					go OnEnterHall(manager, user)
 				}
+				fmt.Println("玩家", user.Name, "登录成功！！")
 				return
 			} else {
 				manager.SendMsgByConn(conn, S2C_LOGIN_FAIL, nil)
@@ -71,8 +90,10 @@ func OnLogin(manager *Manager, conn net.Conn) {
 		} else if cmd == C2S_HEART {
 			manager.StartHeartBeat(conn)
 		} else if cmd == C2S_REGISTER {
-			go OnRegister(manager, conn)
-			return
+			//go OnRegister(manager, conn)
+			if Register(manager, conn, body.(msg.LoginInfo)) {
+				return
+			}
 		}
 	}
 	//defer func() {
@@ -91,7 +112,8 @@ func OnEnterHall(manager *Manager, user *User) {
 		b := make([]byte, 1024)
 		n, err := user.Conn.Read(b)
 		if err != nil {
-			log.Print("OnEnterHall conn error ")
+			log.Println("OnEnterHall conn error ", err)
+			OnTimeout(manager, user)
 			return
 		}
 		cmd, body, err := msg.Deserialize(b[:n])
@@ -99,7 +121,8 @@ func OnEnterHall(manager *Manager, user *User) {
 		}
 		switch cmd {
 		case C2S_LOGOUT:
-			user.SetLogout()
+			OnLogout(manager, user)
+			return
 		case C2S_ENTER_ROOM:
 			isLegal, room := manager.CheckRoomInfo(body.(msg.LoginInfo))
 			if isLegal {
@@ -132,7 +155,7 @@ func OnEnterRoom(manager *Manager, user *User) {
 			OnTimeout(manager, user)
 			return
 		}
-		cmd, body, err := msg.Deserialize(b[:n])
+		cmd, _, err := msg.Deserialize(b[:n])
 		if err != nil {
 		}
 		switch cmd {
@@ -141,7 +164,6 @@ func OnEnterRoom(manager *Manager, user *User) {
 			go OnEnterHall(manager, user)
 			return
 		case C2S_CHAT:
-			fmt.Println("MSG : ", body)
 			OnChatMsg(manager, user, b[:n])
 		case C2S_HEART:
 			manager.StartHeartBeat(user.Conn)
@@ -159,7 +181,8 @@ func OnEnterRoom(manager *Manager, user *User) {
 
 //下线
 func OnLogout(manager *Manager, user *User) {
-	user.Room.SetUserOffline(user)
+	fmt.Println("OnLogout", user.Uid)
+	user.SetOffline()
 }
 
 //退出房间
@@ -173,5 +196,5 @@ func OnChatMsg(manager *Manager, user *User, b []byte) {
 }
 
 func OnTimeout(manager *Manager, user *User) {
-	user.Room.SetUserOffline(user)
+	user.SetOffline()
 }

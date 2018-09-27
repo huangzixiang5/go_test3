@@ -4,7 +4,7 @@ import "time"
 
 const (
 	IP         = "localhost:50000"
-	HEART_TIME = time.Second * 300
+	HEART_TIME = time.Second * 100
 )
 
 const (

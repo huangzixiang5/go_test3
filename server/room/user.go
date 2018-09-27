@@ -3,6 +3,7 @@ package room
 import (
 	. "../config"
 	"../msg"
+	"../mysql"
 	"fmt"
 	"log"
 	"net"
@@ -25,11 +26,20 @@ type User struct {
 
 func (this *User) SetLogin() {
 	this.LoginTime = time.Now()
+	this.Status = STATUS_IN_HALL
 }
 
 func (this *User) SetLogout() {
 	this.LogoutTime = time.Now()
-	this.TotalTime = this.LogoutTime.Second() - this.LoginTime.Second()
+	this.TotalTime = this.TotalTime + this.LogoutTime.Second() - this.LoginTime.Second()
+}
+
+func (this *User) SetOffline() {
+	this.SetLogout()
+	this.UpdateUserTimeInfo()
+	if this.Room != nil {
+		this.Room.SetUserOffline(this)
+	}
 }
 
 func (this *User) SetConn(conn net.Conn) {
@@ -50,12 +60,26 @@ func (this *User) ConvertToUserInfo() msg.UserInfo {
 }
 
 func (this *User) SendMsg(b []byte) {
-
 	cmd, data, _ := msg.Deserialize(b)
-	fmt.Println("发送  ", this.Uid, cmd, data)
-
 	_, err := this.Conn.Write(b)
 	if err != nil {
 		log.Print(err)
+	} else {
+		fmt.Println("发送成功  ", this.Uid, cmd, data)
 	}
+}
+
+func (this *User) UpdateUserTimeInfo() {
+	Rid := -1
+	if this.Room != nil {
+		Rid = this.Room.Rid
+	}
+
+	t := &mysql.UserInfo{
+		Status:        "offline",
+		OfflineTime:   this.LogoutTime.Format("2006-01-02 15:04:05"),
+		OnlineTime:    this.TotalTime,
+		DefaultRoomId: Rid}
+	fmt.Println("UpdateUserTimeInfo offline time : ", t)
+	mysql.UpDateUserTimeInfo(this.Uid, t)
 }

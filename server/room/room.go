@@ -4,6 +4,7 @@ import (
 	. "../config"
 	"../msg"
 	"../mysql"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -76,9 +77,12 @@ func (this *ChatRoom) Run() {
 func (this *ChatRoom) SetUserIn(user *User) {
 	if user.GetRoomId() == this.Rid { //之前就在房间中，发送离线消息
 		this.OfflineNum--
-		if messages := this.GetMsgByTime(time.Now().Format("2006-01-02 15:04:05")); len(messages) > 0 {
+		t := user.LogoutTime.Format("2006-01-02 15:04:05") //用户上次离线时间
+		if messages := this.GetMsgByTime(t); len(messages) > 0 {
 			for _, m := range messages {
-				user.SendMsg([]byte(m.SendMsg))
+				if m.SendMsg != "" {
+					user.SendMsg([]byte(m.SendMsg))
+				}
 			}
 		}
 	}
@@ -169,7 +173,8 @@ func (this *ChatRoom) ConvertToRoomInfo() msg.RoomInfo {
 	//for _, user := range this.OfflineUsers {
 	//	others = append(others, user.ConvertToUserInfo())
 	//}
-	others = append(others, this.GetUserInfoFromSql()...)
+
+	others = append(others, this.GetUserInfoFromSql(others)...)
 	return msg.RoomInfo{Rid: this.Rid, Others: others}
 }
 
@@ -180,6 +185,7 @@ func (this *ChatRoom) SendMsg(b []byte) {
 }
 
 func (this *ChatRoom) ReceiveMsg(b []byte) {
+	fmt.Println("ChatRoom ReceiveMsg ", b)
 	this.msg <- b
 	t := time.Now().Format("2006-01-02 15:04:05")
 	this.msgBuf = append(this.msgBuf, mysql.RoomInfo{SendMsg: string(b), SendTime: t})
@@ -198,10 +204,19 @@ func (this *ChatRoom) AddMsgToSql(infos []mysql.RoomInfo) {
 }
 
 //查询离线玩家信息
-func (this *ChatRoom) GetUserInfoFromSql() []msg.UserInfo {
+func (this *ChatRoom) GetUserInfoFromSql(onlineUsers []msg.UserInfo) []msg.UserInfo {
 	result := make([]msg.UserInfo, 0)
 	t := mysql.GetAllUserInfoByRoomId(this.Rid)
 	for _, u := range t {
+		isOnline := false
+		for _, uu := range onlineUsers {
+			if uu.Uid == u.Uid {
+				isOnline = true //当前玩家已经在线，，但数据库中 状态还没改
+			}
+		}
+		if isOnline {
+			continue
+		}
 		t, _ := strconv.Atoi(u.OfflineTime)
 		level, exp, title := UserLevelConversion(t)
 		result = append(result, msg.UserInfo{Uid: u.Uid, Name: u.UserName, Level: level, Exp: exp, Title: title, Status: STATUS_OFFLINE})
@@ -211,9 +226,16 @@ func (this *ChatRoom) GetUserInfoFromSql() []msg.UserInfo {
 
 //获取离线消息
 func (this *ChatRoom) GetMsgByTime(t string) []mysql.RoomInfo {
+	fmt.Println("ChatRoom GetMsgByTime", t)
 	messages := make([]mysql.RoomInfo, 0)
-	messages = append(messages, this.msgBuf...)
-	s := mysql.GetRoomInfoByTimes(t, time.Now().Format("2006-01-02 15:04:05"))
+	for _, info := range this.msgBuf {
+		offlineTime, _ := time.Parse("2006-01-02 15:04:05", t)         //离线时间
+		msgTime, _ := time.Parse("2006-01-02 15:04:05", info.SendTime) //消息发送时间
+		if offlineTime.Sub(msgTime) < 0 {
+			messages = append(messages, info)
+		}
+	}
+	s := mysql.GetRoomInfoByTimes(t, time.Now().Format("2006-01-02 15:04:05"), this.Rid)
 	for _, info := range s {
 		messages = append(messages, info)
 	}

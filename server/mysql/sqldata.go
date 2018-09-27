@@ -9,8 +9,8 @@ import (
 )
 
 var user = "root"
-var pwd = "123456"
-var dbName = "chat_room"
+var pwd = "root123"
+var dbName = "test1"
 var userInfoTab = "userinfo"  //用户信息
 var hallInfoTab = "hallinfo"  //大厅信息
 var roomInfoTab = "roominfo_" //房间信息
@@ -81,7 +81,7 @@ func ExecuteStr(sqlStr string, args []interface{}) {
 //-------------------------------------------------------用户信息表 userInfoTab 的增删改查---------------
 //新增用户
 func AddUserInfo(userInfo *UserInfo) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", userInfo.OfflineTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", userInfo.OfflineTime)
 	checkErr(err)
 	str := "INSERT " + userInfoTab + " set uid = ?, user_name = ?,password = ?, head_photo = ?, status = ?, online_time = ?, offline_time = ?,default_roomid = ?"
 	args := []interface{}{userInfo.Uid, userInfo.UserName, userInfo.PassWord, userInfo.HeadPhoto, userInfo.Status, userInfo.OnlineTime, ttime, userInfo.DefaultRoomId}
@@ -95,6 +95,15 @@ func UpDateUserInfoByUid(uid int, userInfo *UserInfo) {
 	checkErr(err)
 	str := "UPDATE " + userInfoTab + " SET `user_name`= ?, `password`=?, `head_photo`=?, `status`=?, `online_time`=?, `offline_time`=?, `default_roomid`=? WHERE `uid`=? "
 	args := []interface{}{userInfo.UserName, userInfo.PassWord, userInfo.HeadPhoto, userInfo.Status, userInfo.OnlineTime, ttime, userInfo.DefaultRoomId, uid}
+	ExecuteStr(str, args)
+}
+
+//
+func UpDateUserTimeInfo(uid int, userInfo *UserInfo) {
+	ttime, err := time.Parse("2006-01-02 15:04:05", userInfo.OfflineTime)
+	checkErr(err)
+	str := "UPDATE " + userInfoTab + " set `status`=?, `online_time`=?, `offline_time`=?, `default_roomid`=? WHERE `uid`=? "
+	args := []interface{}{userInfo.Status, userInfo.OnlineTime, ttime, userInfo.DefaultRoomId, uid}
 	ExecuteStr(str, args)
 }
 
@@ -203,7 +212,30 @@ func CheckUserInfoByUidAndPassword(uid int, password string) (bool bool, result 
 	}
 	return false, result
 	//checkErr(err)
+}
 
+func CheckUserInfoByNameAndPassword(name, password string) (b bool, result []UserInfo) {
+	result = []UserInfo{}
+	str := "SELECT * FROM " + userInfoTab + " WHERE `user_name`=? and `password`=? "
+
+	db := GetDBConnect()
+	defer db.Close()
+
+	row := db.QueryRow(str, name, password)
+	var Uid int
+	var UserName string
+	var PassWord string
+	var HeadPhoto string
+	var Status string
+	var OnlineTime int
+	var OfflineTime string
+	var DefaultRoomId int
+	err := row.Scan(&Uid, &UserName, &PassWord, &HeadPhoto, &Status, &OnlineTime, &OfflineTime, &DefaultRoomId)
+	if err == nil {
+		result = append(result, UserInfo{Uid, UserName, PassWord, HeadPhoto, Status, OnlineTime, OfflineTime, DefaultRoomId})
+		return true, result
+	}
+	return false, result
 }
 
 //------------------------------------------------------------------------------------------------
@@ -274,25 +306,27 @@ func AddRoomInfoByRoomId(roomId int, roomInfo *RoomInfo) {
 	if err != nil {
 		log.Print("该房间之前是空的")
 		CreateRoomTabByRoomId(roomId, roomInfoTab)
+		return
 	} else {
 	}
 
-	ttime, err := time.Parse("2006-01-02 15:04:05", roomInfo.SendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", roomInfo.SendTime)
 	checkErr(err)
 	str := "INSERT INTO " + roomInfoTab + strconv.Itoa(roomId) + "(`uid`, `send_time`, `send_msg`, `room_name`) VALUES ( ?,?,?,?)"
 	args := []interface{}{roomInfo.Uid, ttime, roomInfo.SendMsg, roomInfo.RoomName}
 	ExecuteStr(str, args)
 	log.Println("insert roommsg", roomInfo.SendMsg)
 }
+
 func UpdataRoomInfoBySendTime(roomId int, sendTime string, roomInfo *RoomInfo) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "UPDATE " + roomInfoTab + strconv.Itoa(roomId) + " SET `uid`= ?, `room_name`=?, `send_msg`=? WHERE `send_time`=? "
 	args := []interface{}{roomInfo.Uid, roomInfo.RoomName, roomInfo.SendMsg, ttime}
 	ExecuteStr(str, args)
 }
 func DeleteSingleRoomInfoBySendTime(roomId int, sendTime string) {
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "DELETE FROM " + roomInfoTab + strconv.Itoa(roomId) + " WHERE `send_time` =?"
 	args := []interface{}{}
@@ -301,7 +335,7 @@ func DeleteSingleRoomInfoBySendTime(roomId int, sendTime string) {
 }
 func GetSingleRoomInfoBySendTime(roomId int, sendTime string) (result []RoomInfo) {
 	result = []RoomInfo{}
-	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
+	ttime, err := time.Parse("2006-01-02 15:04:05", sendTime)
 	checkErr(err)
 	str := "SELECT * FROM " + roomInfoTab + strconv.Itoa(roomId) + " WHERE `send_time`=? LIMIT 1"
 	db := GetDBConnect()
@@ -334,13 +368,15 @@ func GetAllRoomInfo(roomId int) (result []RoomInfo) {
 	}
 	return result
 }
-func GetRoomInfoByTimes(time1 string, time2 string) (result []RoomInfo) {
+func GetRoomInfoByTimes(time1 string, time2 string, roomId int) (result []RoomInfo) {
 	result = []RoomInfo{}
-	t1, err := time.Parse("2006-01-02 15:04:05", time1)
+	t1, err := time.Parse("2006-01-02 15:04:05", time1)
 	checkErr(err)
-	t2, err := time.Parse("2006-01-02 15:04:05", time2)
+	t2, err := time.Parse("2006-01-02 15:04:05", time2)
 	checkErr(err)
-	str := "SELECT * FROM " + roomInfoTab + " WHERE send_time BETWEEN ? AND ?"
+
+	id := strconv.Itoa(roomId)
+	str := "SELECT * FROM " + roomInfoTab + id + " WHERE send_time BETWEEN ? AND ?"
 	db := GetDBConnect()
 	defer db.Close()
 	stmt, err := db.Prepare(str)
@@ -362,12 +398,12 @@ func GetRoomInfoByTimes(time1 string, time2 string) (result []RoomInfo) {
 
 func checkErr(err error) {
 	if err != nil {
-		log.Println(err)
+		log.Println("mysql", err)
 	}
 }
 
 func main() {
-	//CreateBasalTab(userInfoTab, hallInfoTab) //创建用户信息表和大厅信息表，需要初始创建
+	CreateBasalTab(userInfoTab, hallInfoTab) //创建用户信息表和大厅信息表，需要初始创建
 	//CreateRoomTabByRoomId(2, roomInfoTab) // 创建具体聊天室表，不用单独创建，新增房间信息的时候会创建
 
 	//用户信息操作接口：
@@ -398,7 +434,7 @@ func main() {
 	//room1.SendTime = time.Now().Format("2006-01-02 15:04:05")
 	//room1.SendMsg = "hello world"
 	//AddRoomInfoByRoomId(5, room1)
-	a, b := CheckUserInfoByUidAndPassword(2, "789789")
-	log.Println(a, b[0].UserName)
+	//a, b := CheckUserInfoByUidAndPassword(2, "789789")
+	//log.Println(a, b[0].UserName)
 	//log.Println(a.FieldByName("Uid"))
 }
