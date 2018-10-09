@@ -165,6 +165,7 @@ func login(conn net.Conn) {
 		sendDataClient <- send
 		res := <-recvDataClient
 		cmd, loginRes, err := msg.Deserialize(res)
+		//fmt.Println("denglu ....",cmd,loginRes)
 		switch cmd {
 		case S2C_LOGIN_FAIL:
 			fmt.Println("登录失败! ", loginRes)
@@ -194,7 +195,7 @@ func login(conn net.Conn) {
 func HallInfo(hallInfo msg.HallInfo, conn net.Conn) {
 	var ordinal int
 	for i, _ := range hallInfo.Rooms {
-		fmt.Println("room_id: ", hallInfo.Rooms[i].Rid, "room_name: ", hallInfo.Rooms[i].Name, "online_num: ", hallInfo.Rooms[i].OnlineNum, "total_num: ", hallInfo.Rooms[i].OfflineNum)
+		fmt.Println("room_id: ", hallInfo.Rooms[i].Rid, "room_name: ", hallInfo.Rooms[i].Name, "online_num: ", hallInfo.Rooms[i].OnlineNum, "total_num: ", hallInfo.Rooms[i].OfflineNum+hallInfo.Rooms[i].OnlineNum)
 	}
 	fmt.Println("选择聊天室序号，请输入：", C2S_ENTER_ROOM, "选择登出，请输入：", C2S_LOGOUT)
 	var choose uint8
@@ -268,7 +269,7 @@ func showMessage(conn net.Conn) {
 			if !ok {
 				fmt.Println("接受等级变化失败")
 			}
-			fmt.Println("uid", levelchange.Uid, "oldtitle", levelchange.OldTitle, "newtitle", levelchange.NewTitle)
+			fmt.Printf("恭喜uid为：%d的玩家由%s成功晋升为“%s”\n", levelchange.Uid , levelchange.OldTitle,  levelchange.NewTitle)
 		}
 		if cmd == S2C_BROADCAST_ENTER_ROOM {
 			loginInfoIn, ok := message.(msg.LoginInfo)
@@ -325,15 +326,10 @@ func inputMessage(conn net.Conn) {
 			//l.Unlock()
 			if cmd == S2C_OUT_ROOM_SUCCESS {
 				fmt.Println("退出房间，返回大厅")
-				//HallInfo(hallInfo, conn)
-				//send, err := msg.Serialize(C2S_LOGIN, loginInfos)
-				//checkErrClient(err)
-				//sendDataClient <- send
-				//fmt.Println("发送成功")
 				res := <-recvDataClient
 				fmt.Println("接收成功")
 				cmd, loginRes, err := msg.Deserialize(res)
-				fmt.Println("reccmd: ", cmd)
+				//fmt.Println("reccmd: ", cmd)
 				checkErrClient(err)
 				if cmd == S2C_LOGIN_SUCCESS {
 					fmt.Println("返回大厅成功")

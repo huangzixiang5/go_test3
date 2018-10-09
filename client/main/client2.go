@@ -10,19 +10,19 @@ import (
 var myInfo msg.UserInfo
 var otherInfo msg.UserInfo
 
-func main() {
-	conn, _ := net.Dial("tcp", IP)
-	fmt.Println("连接成功")
-
-	go SendMsg(conn)
-	go ReceiveMsg(conn)
-	select {}
-}
+//func main() {
+//	conn, _ := net.Dial("tcp", IP)
+//	fmt.Println("连接成功")
+//
+//	go SendMsg(conn)
+//	go ReceiveMsg(conn)
+//	select {}
+//}
 
 func SendMsg(conn net.Conn) {
 	registerInfo := msg.LoginInfo{
-		Name:     "bbb",
-		Password: "bbb",
+		Name:     "333",
+		Password: "333",
 	}
 	send, _ := msg.Serialize(C2S_LOGIN, registerInfo)
 	conn.Write(send)
@@ -61,8 +61,4 @@ func ReceiveMsg(conn net.Conn) {
 			fmt.Println(myInfo.Name+": ", string(body.(msg.Chat).Content))
 		}
 	}
-}
-
-func StartLogin(conn net.Conn) {
-
 }
